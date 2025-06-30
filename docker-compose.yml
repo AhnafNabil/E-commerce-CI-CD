@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # New comment
+  # New comment 2
   # API Gateway
   nginx-gateway:
     image: nginx:latest
