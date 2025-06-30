@@ -1,0 +1,50 @@
+name: Deploy E-commerce Microservices
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  detect-changes:
+    runs-on: self-hosted
+    outputs:
+      deploy_all: ${{ steps.detect.outputs.DEPLOY_ALL }}
+      services: ${{ steps.detect.outputs.SERVICES }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changes
+        id: detect
+        run: |
+          chmod +x .github/scripts/detect-changes.sh
+          .github/scripts/detect-changes.sh
+
+      - name: Display detection results
+        run: |
+          echo "Deploy All: ${{ steps.detect.outputs.DEPLOY_ALL }}"
+          echo "Services: ${{ steps.detect.outputs.SERVICES }}"
+
+  deploy:
+    needs: detect-changes
+    runs-on: self-hosted
+    steps:
+      - name: Deploy services
+        run: |
+          cd /opt/ecommerce-app
+          git fetch origin
+          git reset --hard origin/main
+          chmod +x .github/scripts/deploy.sh
+          .github/scripts/deploy.sh "${{ needs.detect-changes.outputs.deploy_all }}" "${{ needs.detect-changes.outputs.services }}"
+
+      - name: Deployment summary
+        run: |
+          echo "🚀 Deployment completed successfully!"
+          echo "Deploy All: ${{ needs.detect-changes.outputs.deploy_all }}"
+          echo "Services: ${{ needs.detect-changes.outputs.services }}"
+          cd /opt/ecommerce-app
+          echo ""
+          echo "Running services:"
+          docker-compose ps
