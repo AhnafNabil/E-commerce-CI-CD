@@ -31,11 +31,33 @@ jobs:
     needs: detect-changes
     runs-on: self-hosted
     steps:
+      - name: Setup application directory
+        run: |
+          # Ensure directory exists and is owned by runner
+          sudo mkdir -p /opt/ecommerce-app
+          sudo chown -R github-runner:github-runner /opt/ecommerce-app
+          
+      - name: Initialize or update repository
+        run: |
+          cd /opt/ecommerce-app
+          
+          # Check if this is a git repository
+          if [ ! -d ".git" ]; then
+            echo "🔄 First time setup - cloning repository..."
+            git clone https://github.com/${{ github.repository }}.git .
+          else
+            echo "✅ Repository exists - updating..."
+            git fetch origin
+            git reset --hard origin/main
+          fi
+          
+          echo "📁 Repository status:"
+          git status --short
+          ls -la
+
       - name: Deploy services
         run: |
           cd /opt/ecommerce-app
-          git fetch origin
-          git reset --hard origin/main
           chmod +x .github/scripts/deploy.sh
           .github/scripts/deploy.sh "${{ needs.detect-changes.outputs.deploy_all }}" "${{ needs.detect-changes.outputs.services }}"
 
