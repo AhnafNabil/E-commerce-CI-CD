@@ -58,6 +58,13 @@ We will create a new GitHub repository and prepare the codebase locally by cloni
 
 ### 1.2 Prepare the Codebase Locally
 
+At first, setup Github default account in `Poridhi's Vscode`.
+
+```bash
+git config user.email "<your-email>"
+git config user.name "<Your-username>"
+```
+
 Run the following commands to clone the source repository and set up your own:
 
 ```bash
@@ -72,7 +79,6 @@ rm -rf .git
 
 # Initialize new git repository
 git init
-git branch -M main
 
 # Add your repository as remote (replace with your actual repository URL)
 git remote add origin https://github.com/YOUR-USERNAME/my-ecommerce-microservices.git
@@ -86,7 +92,7 @@ Set up an Ubuntu server with Docker and necessary tools to act as the self-hoste
 
 ### 2.1 Update the Server
 
-Connect to your Ubuntu/Linux server and update it:
+We will use `Poridhi's Vscode` as a server for self-hosted runner. Open a new terminal and update the server:
 
 ```bash
 sudo apt update && sudo apt upgrade -y
@@ -314,9 +320,6 @@ create_env_files() {
         if [ -n "$SMTP_PASSWORD" ]; then
             sed -i "s/^SMTP_PASSWORD=.*/SMTP_PASSWORD=${SMTP_PASSWORD}/" notification-service/.env
         fi
-        if [ -n "$EMAIL_FROM" ]; then
-            sed -i "s/^EMAIL_FROM=.*/EMAIL_FROM=${EMAIL_FROM}/" notification-service/.env
-        fi
         
         echo "✓ Updated notification service environment variables"
     else
@@ -444,10 +447,24 @@ jobs:
     needs: detect-changes
     runs-on: self-hosted
     steps:
-      - name: Setup application directory
+      - name: Verify application directory
         run: |
-          sudo mkdir -p /opt/ecommerce-app
-          sudo chown -R github-runner:github-runner /opt/ecommerce-app
+          # Check if directory exists and has proper ownership
+          if [ ! -d "/opt/ecommerce-app" ]; then
+            echo "❌ Application directory does not exist."
+            echo "Please run on server: sudo mkdir -p /opt/ecommerce-app && sudo chown -R github-runner:github-runner /opt/ecommerce-app"
+            exit 1
+          fi
+          
+          # Verify we have write access
+          if [ ! -w "/opt/ecommerce-app" ]; then
+            echo "❌ No write access to /opt/ecommerce-app"
+            echo "Please run on server: sudo chown -R github-runner:github-runner /opt/ecommerce-app"
+            exit 1
+          fi
+          
+          echo "✅ Application directory verified"
+          ls -la /opt/ecommerce-app
           
       - name: Initialize or update repository
         run: |
@@ -467,7 +484,8 @@ jobs:
 
       - name: Deploy services
         env:
-          SMTP Kepler://github.com/YOUR-USERNAME/YOUR-REPO-NAME --token YOUR-TOKEN
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
         run: |
           cd /opt/ecommerce-app
           chmod +x .github/scripts/deploy.sh
@@ -483,8 +501,6 @@ jobs:
           echo "Running services:"
           docker-compose ps
 ```
-
-> **NOTE:** Ensure you replace `YOUR-USERNAME` and `YOUR-REPO-NAME` in the workflow file with your actual GitHub username and repository name.
 
 ## Step 6: Configure GitHub Secrets for Secure Credentials
 
@@ -513,11 +529,26 @@ Value: [your_mailtrap_password_from_step_6.1]
 
 Confirm that the two secrets (`SMTP_USER`, `SMTP_PASSWORD`) are listed in the repository’s secrets section.
 
-## Step 7: Commit and Push the Codebase
+## Step 7: Create the Application Directory
+
+Create the application directory where the code will be deployed.
+
+```bash
+sudo mkdir -p /opt/ecommerce-app
+sudo chown -R github-runner:github-runner /opt/ecommerce-app
+```
+
+Verify permissions:
+
+```bash
+ls -la /opt/ | grep ecommerce-app
+```
+
+## Step 8: Commit and Push the Codebase
 
 Push the codebase and CI/CD scripts to trigger the initial deployment.
 
-### 7.1 Commit and Push
+### 8.1 Commit and Push
 
 ```bash
 # Add all files including the original codebase and new CI/CD files
@@ -529,15 +560,18 @@ git status
 # Make the initial commit
 git commit -m "Initial commit: Add e-commerce microservices with CI/CD pipeline"
 
+# Rename the current branch from master to main
+git branch -M master main
+
 # Push to your repository
 git push -u origin main
 ```
 
-## Step 8: Verify Initial Deployment
+## Step 9: Verify Initial Deployment
 
 Check that the pipeline executes and deploys all services successfully.
 
-### 8.1 Monitor Workflow Execution
+### 9.1 Monitor Workflow Execution
 
 1. In your GitHub repository, go to the **Actions** tab.
 2. Locate the "Deploy E-commerce Microservices" workflow run and click to view details.
@@ -549,7 +583,7 @@ Check that the pipeline executes and deploys all services successfully.
 - Deploy all services.
 - Display the final status.
 
-### 8.2 Verify Services on the Server
+### 9.2 Verify Services on the Server
 
 As the `github-runner` user, check running services:
 
@@ -564,7 +598,7 @@ docker-compose ps
 
 **Expected Output:** All services (e.g., product-service, inventory-service, etc.) should be in the "Up" state.
 
-### 8.3 Test Notification Service
+### 9.3 Test Notification Service
 
 Verify email functionality:
 
@@ -574,11 +608,11 @@ curl -X POST "http://localhost/api/v1/notifications/test" | jq .
 
 Check your Mailtrap inbox for a test email.
 
-## Step 9: Test Single Service Deployment
+## Step 10: Test Single Service Deployment
 
 Test the pipeline’s ability to deploy only modified services.
 
-### 9.1 Modify a Single Service
+### 10.1 Modify a Single Service
 
 ```bash
 # Make a small change to product service
@@ -590,12 +624,12 @@ git commit -m "Test: Update product service documentation"
 git push origin main
 ```
 
-### 9.2 Monitor Workflow
+### 10.2 Monitor Workflow
 
 1. Go to the **Actions** tab in your GitHub repository.
 2. Verify that only `product-service` is redeployed in the workflow logs.
 
-### 9.3 Verify Selective Deployment
+### 10.3 Verify Selective Deployment
 
 On the server:
 
