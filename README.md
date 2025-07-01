@@ -107,7 +107,13 @@ docker --version
 docker-compose --version
 ```
 
-### 2.3 Create a Dedicated Runner User
+### 2.3 Install `jq` for JSON parsing
+
+```bash
+sudo apt-get install -y jq
+```
+
+### 2.4 Create a Dedicated Runner User
 
 Create a user for the GitHub Actions runner and add it to necessary groups:
 
@@ -191,7 +197,6 @@ Add scripts to detect changes and handle deployments locally in your repository.
 ### 4.1 Navigate to the Repository Directory
 
 ```bash
-# Navigate to your local repository
 cd my-ecommerce-repo
 ```
 
@@ -509,7 +514,7 @@ Set up environment variables for the notification service using GitHub Secrets.
 ### 6.1 Obtain Mailtrap Credentials
 
 1. Log in to [Mailtrap.io](https://mailtrap.io).
-2. Navigate to **Email Testing → Inboxes** and select your inbox.
+2. Navigate to **Sandbox** and select your inbox.
 3. Go to **SMTP Settings** and copy the username and password.
 
 ### 6.2 Add Secrets to GitHub
