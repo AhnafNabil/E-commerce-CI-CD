@@ -4,6 +4,8 @@ This lab provides a step-by-step guide to implementing a CI/CD pipeline for an e
 
 ## Task Overview
 
+![alt text](./images/Ecommerce-CiCd.svg)
+
 **In this hands-on lab, we will:**
 - Create a new GitHub repository and prepare the codebase.
 - Set up an Ubuntu server with Docker and a GitHub self-hosted runner.
@@ -61,8 +63,8 @@ We will create a new GitHub repository and prepare the codebase locally by cloni
 At first, setup Github default account in `Poridhi's Vscode`.
 
 ```bash
-git config user.email "<your-email>"
-git config user.name "<Your-username>"
+git config --global user.email "<your-email>"
+git config --global user.name "<Your-username>"
 ```
 
 Run the following commands to clone the source repository and set up your own:
@@ -95,7 +97,7 @@ Set up an Ubuntu server with Docker and necessary tools to act as the self-hoste
 We will use `Poridhi's Vscode` as a server for self-hosted runner. Open a new terminal and update the server:
 
 ```bash
-sudo apt update && sudo apt upgrade -y
+sudo apt update
 ```
 
 ### 2.2 Check Docker and Docker Compose Installation
@@ -173,6 +175,8 @@ When prompted, configure the runner:
 # Enter name of work folder: [Press Enter]
 ```
 
+![alt text](./images/image.png)
+
 ### 3.3 Install and Start the Runner Service
 
 ```bash
@@ -186,9 +190,13 @@ sudo ./svc.sh start
 sudo ./svc.sh status
 ```
 
+![alt text](./images/image-1.png)
+
 ### 3.4 Verify Runner in GitHub
 
 Go to **Settings → Actions → Runners** in your repository. Confirm the runner appears as "Idle".
+
+![alt text](./images/image-2.png)
 
 ## Step 4: Create CI/CD Scripts
 
@@ -526,13 +534,15 @@ Set up environment variables for the notification service using GitHub Secrets.
 Name: SMTP_USER
 Value: [your_mailtrap_username_from_step_6.1]
 
-Name: SMTP_PASSWORD  
+Name: SMTP_PASSWORD
 Value: [your_mailtrap_password_from_step_6.1]
 ```
 
 ### 6.3 Verify Secrets
 
 Confirm that the two secrets (`SMTP_USER`, `SMTP_PASSWORD`) are listed in the repository’s secrets section.
+
+![alt text](./images/image-3.png)
 
 ## Step 7: Create the Application Directory
 
@@ -588,6 +598,8 @@ Check that the pipeline executes and deploys all services successfully.
 - Deploy all services.
 - Display the final status.
 
+![alt text](./images/image-4.png)
+
 ### 9.2 Verify Services on the Server
 
 As the `github-runner` user, check running services:
@@ -611,7 +623,11 @@ Verify email functionality:
 curl -X POST "http://localhost/api/v1/notifications/test" | jq .
 ```
 
+![alt text](./images/image-5.png)
+
 Check your Mailtrap inbox for a test email.
+
+![alt text](./images/image-6.png)
 
 ## Step 10: Test Single Service Deployment
 
@@ -633,6 +649,10 @@ git push origin main
 
 1. Go to the **Actions** tab in your GitHub repository.
 2. Verify that only `product-service` is redeployed in the workflow logs.
+
+![alt text](./images/image-7.png)
+
+![alt text](./images/image-8.png)
 
 ### 10.3 Verify Selective Deployment
 
