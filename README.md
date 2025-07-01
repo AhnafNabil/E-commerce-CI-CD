@@ -1,50 +1,68 @@
-# CI/CD Pipeline Implementation for E-commerce Microservices
+# Building a CI/CD Pipeline for E-commerce Microservices with GitHub Actions
 
-This guide provides a complete plug-and-play CI/CD pipeline setup using GitHub Actions with self-hosted runners. The original codebase is in a public repository, so you'll create your own repository and set up automatic deployment with secure environment variable management.
+This lab provides a step-by-step guide to implementing a CI/CD pipeline for an e-commerce microservices application using GitHub Actions with self-hosted runners. By leveraging a public repository, you will create your own repository, set up automated deployments with smart change detection, and manage secure credentials using GitHub Secrets. This hands-on lab ensures a production-ready pipeline that deploys only modified services efficiently.
 
-## Overview
+## Task Overview
 
-The CI/CD pipeline automatically deploys your microservices when changes are pushed to the main branch. It intelligently detects which services changed and deploys only those services, with secure credential management through GitHub Secrets.
+**In this hands-on lab, we will:**
+- Create a new GitHub repository and prepare the codebase.
+- Set up an Ubuntu server with Docker and a GitHub self-hosted runner.
+- Configure scripts to detect changes and deploy services selectively.
+- Create a GitHub Actions workflow for automated deployment.
+- Securely manage environment variables with GitHub Secrets.
+- Test the pipeline with various scenarios (initial deployment, single service changes, infrastructure updates, and notification service updates).
+- Verify the pipeline functionality and ensure services are running.
 
-```
-Public Repo → Your Repo → Code Push → GitHub Actions → Self-Hosted Runner → Smart Deployment → Running Services
-```
+By the end of this lab, you will have a fully automated CI/CD pipeline that deploys e-commerce microservices to a self-hosted server, with intelligent change detection and secure credential management.
 
----
+## Key Concepts
 
-## Prerequisites Checklist
+### Why CI/CD with GitHub Actions?
 
-Before starting, ensure you have:
+CI/CD (Continuous Integration/Continuous Deployment) automates the process of building, testing, and deploying code changes, reducing manual effort and ensuring consistency. GitHub Actions enables customizable workflows to automate these tasks, with self-hosted runners providing control over the deployment environment.
 
-- [ ] Ubuntu/Linux server (minimum 4GB RAM)
-- [ ] GitHub account
-- [ ] Terminal access to your server
-- [ ] Basic Git knowledge
-- [ ] Mailtrap.io account (for email notifications)
+### What is GitHub Actions?
 
----
+GitHub Actions is a platform for automating workflows directly within a GitHub repository. It supports CI/CD by triggering actions (like deployment) on events such as code pushes, using YAML-based workflow files.
 
-## Step-by-Step Implementation
+**Key Features:**
+- Runs on self-hosted or GitHub-hosted runners.
+- Supports parallel job execution and dependency management.
+- Integrates with GitHub Secrets for secure credential management.
 
-### **Step 1: Create Your Own Repository**
+### What is a Self-Hosted Runner?
 
-**1.1 Create a new GitHub repository:**
+A self-hosted runner is a server you manage that executes GitHub Actions workflows. It provides flexibility to customize the environment, install dependencies like Docker, and control resource allocation.
 
-1. Go to [GitHub](https://github.com)
-2. Click the **"+"** icon in the top right
-3. Select **"New repository"**
-4. Fill in the details:
-   - **Repository name**: `my-ecommerce-microservices` (or any name you prefer)
-   - **Description**: `E-commerce microservices with CI/CD pipeline`
-   - **Visibility**: Public or Private (your choice)
-   - **Initialize**: ❌ **DO NOT** check "Add a README file" (leave empty)
-5. Click **"Create repository"**
+### How the Pipeline Works
 
-**1.2 Prepare the codebase locally:**
+- **Change Detection:** A script identifies modified files to determine which services need deployment.
+- **Secure Deployment:** Environment variables are injected from GitHub Secrets, ensuring sensitive data is protected.
+- **Selective Deployment:** Only changed services or the entire stack (if infrastructure files like `docker-compose.yml` are modified) are deployed.
+- **Verification:** Post-deployment checks confirm services are running and accessible.
+
+## Step 1: Set Up Your GitHub Repository
+
+We will create a new GitHub repository and prepare the codebase locally by cloning the source repository.
+
+### 1.1 Create a New GitHub Repository
+
+1. Navigate to [GitHub](https://github.com).
+2. Click the **"+"** icon in the top-right corner and select **"New repository"**.
+3. Configure the repository:
+   - **Repository name**: `my-ecommerce-microservices` (or your preferred name).
+   - **Description**: `E-commerce microservices with CI/CD pipeline`.
+   - **Visibility**: Public.
+   - **Initialize**: Do NOT check "Add a README file" (leave empty).
+4. Click **"Create repository"**.
+
+### 1.2 Prepare the Codebase Locally
+
+Run the following commands to clone the source repository and set up your own:
 
 ```bash
 # Clone the original public repository
-git clone https://github.com/poridhioss/E-commerce-Microservices-with-Kafka.git my-ecommerce-repo
+git clone https://github.com/poridhioss/E-Commerce-Ci-Cd.git my-ecommerce-repo
 
 # Navigate into the cloned directory
 cd my-ecommerce-repo
@@ -60,33 +78,33 @@ git branch -M main
 git remote add origin https://github.com/YOUR-USERNAME/my-ecommerce-microservices.git
 ```
 
-**Important:** Do NOT push yet! We'll first add the CI/CD workflows.
+> **NOTE:** Do not push the code yet, as we need to add the CI/CD workflow files first.
 
----
+## Step 2: Prepare the Deployment Server
 
-### **Step 2: Server Preparation**
+Set up an Ubuntu server with Docker and necessary tools to act as the self-hosted runner.
 
-**2.1 Connect to your server and update it:**
+### 2.1 Update the Server
+
+Connect to your Ubuntu/Linux server and update it:
+
 ```bash
 sudo apt update && sudo apt upgrade -y
 ```
 
-**2.2 Install Docker and Docker Compose:**
+### 2.2 Check Docker and Docker Compose Installation
+
+Check if Docker and Docker Compose are already installed:
+
 ```bash
-# Install Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# Install Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-
-# Verify installations
 docker --version
 docker-compose --version
 ```
 
-**2.3 Create a dedicated user for GitHub Actions:**
+### 2.3 Create a Dedicated Runner User
+
+Create a user for the GitHub Actions runner and add it to necessary groups:
+
 ```bash
 # Create user
 sudo adduser github-runner
@@ -104,19 +122,20 @@ sudo usermod -aG docker github-runner
 su - github-runner
 ```
 
----
+## Step 3: Configure the GitHub Self-Hosted Runner
 
-### **Step 3: GitHub Runner Setup**
+Set up a self-hosted runner on the server to execute GitHub Actions workflows.
 
-**3.1 Get runner configuration from GitHub:**
+### 3.1 Obtain Runner Configuration
 
-1. Go to **your** GitHub repository (the empty one you just created)
-2. Navigate to **Settings → Actions → Runners**
-3. Click **New self-hosted runner**
-4. Select **Linux**
-5. **Keep this page open** - you'll need the commands shown
+1. Go to your GitHub repository.
+2. Navigate to **Settings → Actions → Runners**.
+3. Click **"New self-hosted runner"** and select **Linux**.
+4. Keep the page open to copy the configuration commands.
 
-**3.2 Download and configure the runner:**
+### 3.2 Download and Configure the Runner
+
+Run these commands as the `github-runner` user:
 
 ```bash
 # Create runner directory
@@ -134,7 +153,7 @@ tar xzf actions-runner-linux-x64-2.311.0.tar.gz
 ./config.sh --url https://github.com/YOUR-USERNAME/YOUR-REPO-NAME --token YOUR-TOKEN
 ```
 
-**3.3 Configure the runner when prompted:**
+When prompted, configure the runner:
 ```bash
 # Enter the name of the runner group: [Press Enter]
 # Enter the name of runner: ecommerce-runner
@@ -142,7 +161,8 @@ tar xzf actions-runner-linux-x64-2.311.0.tar.gz
 # Enter name of work folder: [Press Enter]
 ```
 
-**3.4 Install as a service:**
+### 3.3 Install and Start the Runner Service
+
 ```bash
 # Install the service
 sudo ./svc.sh install
@@ -154,29 +174,32 @@ sudo ./svc.sh start
 sudo ./svc.sh status
 ```
 
-**3.5 Verify in GitHub:**
-Go back to **Settings → Actions → Runners** in **your** repository. You should see your runner showing as "Idle".
+### 3.4 Verify Runner in GitHub
 
----
+Go to **Settings → Actions → Runners** in your repository. Confirm the runner appears as "Idle".
 
-### **Step 4: Create CI/CD Scripts (Locally)**
+## Step 4: Create CI/CD Scripts
 
-**4.1 Go back to your local repository directory:**
+Add scripts to detect changes and handle deployments locally in your repository.
+
+### 4.1 Navigate to the Repository Directory
+
 ```bash
 # Navigate to your local repository
-cd my-ecommerce-repo  # or whatever you named your directory
+cd my-ecommerce-repo
 ```
 
-**4.2 Create the scripts directory:**
+### 4.2 Create Scripts Directory
+
 ```bash
 mkdir -p .github/scripts
 ```
 
-**4.3 Create the change detection script:**
+### 4.3 Create Change Detection Script
 
-Create `.github/scripts/detect-changes.sh`:
+Create `.github/scripts/detect-changes.sh` to identify modified services:
+
 ```bash
-cat > .github/scripts/detect-changes.sh << 'EOF'
 #!/bin/bash
 
 # detect-changes.sh - Detects which services have changed
@@ -243,14 +266,13 @@ else
     echo "SERVICES=$SERVICES_TO_DEPLOY" >> $GITHUB_OUTPUT
     echo "Services to deploy: $SERVICES_TO_DEPLOY"
 fi
-EOF
 ```
 
-**4.4 Create the deployment script:**
+### 4.4 Create Deployment Script
 
-Create `.github/scripts/deploy.sh`:
+Create `.github/scripts/deploy.sh` to handle service deployment and environment variable injection:
+
 ```bash
-cat > .github/scripts/deploy.sh << 'EOF'
 #!/bin/bash
 
 # deploy.sh - Main deployment script with environment variable injection
@@ -372,23 +394,23 @@ echo "=== Deployment completed successfully ==="
 echo ""
 echo "Running services:"
 docker-compose ps
-EOF
 ```
 
----
+## Step 5: Create GitHub Actions Workflow
 
-### **Step 5: Create GitHub Actions Workflow (Locally)**
+Define the CI/CD workflow to automate deployment on code pushes.
 
-**5.1 Create the workflow directory:**
+### 5.1 Create Workflow Directory
+
 ```bash
 mkdir -p .github/workflows
 ```
 
-**5.2 Create the main deployment workflow:**
+### 5.2 Create Deployment Workflow
 
-Create `.github/workflows/deploy.yml`:
+Create `.github/workflows/deploy.yml` to orchestrate the deployment process:
+
 ```bash
-cat > .github/workflows/deploy.yml << 'EOF'
 name: Deploy E-commerce Microservices
 
 on:
@@ -445,9 +467,7 @@ jobs:
 
       - name: Deploy services
         env:
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          SMTP Kepler://github.com/YOUR-USERNAME/YOUR-REPO-NAME --token YOUR-TOKEN
         run: |
           cd /opt/ecommerce-app
           chmod +x .github/scripts/deploy.sh
@@ -462,27 +482,24 @@ jobs:
           echo ""
           echo "Running services:"
           docker-compose ps
-EOF
 ```
 
----
+> **NOTE:** Ensure you replace `YOUR-USERNAME` and `YOUR-REPO-NAME` in the workflow file with your actual GitHub username and repository name.
 
-### **Step 6: Configure GitHub Secrets**
+## Step 6: Configure GitHub Secrets for Secure Credentials
 
-**6.1 Get your Mailtrap credentials:**
+Set up environment variables for the notification service using GitHub Secrets.
 
-1. Go to [Mailtrap.io](https://mailtrap.io) and sign in
-2. Navigate to **Email Testing → Inboxes**
-3. Select your inbox
-4. Go to **SMTP Settings**
-5. Copy the username and password
+### 6.1 Obtain Mailtrap Credentials
 
-**6.2 Add secrets to your GitHub repository:**
+1. Log in to [Mailtrap.io](https://mailtrap.io).
+2. Navigate to **Email Testing → Inboxes** and select your inbox.
+3. Go to **SMTP Settings** and copy the username and password.
 
-1. Go to your GitHub repository
-2. Navigate to **Settings → Secrets and variables → Actions**
-3. Click **New repository secret**
-4. Add these secrets one by one:
+### 6.2 Add Secrets to GitHub
+
+1. In your GitHub repository, go to **Settings → Secrets and variables → Actions**.
+2. Click **"New repository secret"** and add the following:
 
 ```
 Name: SMTP_USER
@@ -490,19 +507,18 @@ Value: [your_mailtrap_username_from_step_6.1]
 
 Name: SMTP_PASSWORD  
 Value: [your_mailtrap_password_from_step_6.1]
-
-Name: EMAIL_FROM
-Value: notifications@yourstore.com
 ```
 
-**6.3 Verify secrets are added:**
-You should see three secrets listed in your repository secrets section.
+### 6.3 Verify Secrets
 
----
+Confirm that the two secrets (`SMTP_USER`, `SMTP_PASSWORD`) are listed in the repository’s secrets section.
 
-### **Step 7: First Commit and Push**
+## Step 7: Commit and Push the Codebase
 
-**7.1 Add all files and make the initial commit:**
+Push the codebase and CI/CD scripts to trigger the initial deployment.
+
+### 7.1 Commit and Push
+
 ```bash
 # Add all files including the original codebase and new CI/CD files
 git add .
@@ -517,29 +533,26 @@ git commit -m "Initial commit: Add e-commerce microservices with CI/CD pipeline"
 git push -u origin main
 ```
 
----
+## Step 8: Verify Initial Deployment
 
-### **Step 8: Verify Initial Deployment**
+Check that the pipeline executes and deploys all services successfully.
 
-**8.1 Check the workflow execution:**
+### 8.1 Monitor Workflow Execution
 
-1. Go to **your** GitHub repository
-2. Click on the **Actions** tab
-3. You should see a workflow run called "Deploy E-commerce Microservices"
-4. Click on it to see the details
+1. In your GitHub repository, go to the **Actions** tab.
+2. Locate the "Deploy E-commerce Microservices" workflow run and click to view details.
 
-**8.2 Monitor the deployment:**
+**Expected Workflow Steps:**
+- Clone the repository to the server.
+- Detect changes (all files are new, so deploy all services).
+- Inject environment variables for the notification service.
+- Deploy all services.
+- Display the final status.
 
-The workflow will:
-- **🔄 Clone repository** to server (first time)
-- **📝 Detect changes** (all files are new, so deploy all)
-- **🔧 Inject environment variables** for notification service
-- **🚀 Deploy all services**
-- **✅ Show final status**
+### 8.2 Verify Services on the Server
 
-**8.3 Verify services are running:**
+As the `github-runner` user, check running services:
 
-On your server, check that services are running:
 ```bash
 # Switch to github-runner user
 su - github-runner
@@ -549,24 +562,23 @@ cd /opt/ecommerce-app
 docker-compose ps
 ```
 
-You should see all your services in "Up" status.
+**Expected Output:** All services (e.g., product-service, inventory-service, etc.) should be in the "Up" state.
 
-**8.4 Test notification service:**
+### 8.3 Test Notification Service
+
+Verify email functionality:
 
 ```bash
-# Test the notification service with updated credentials
 curl -X POST "http://localhost/api/v1/notifications/test" | jq .
 ```
 
-You should receive a test email in your Mailtrap inbox.
+Check your Mailtrap inbox for a test email.
 
----
+## Step 9: Test Single Service Deployment
 
-### **Step 9: Test the Pipeline with Service Changes**
+Test the pipeline’s ability to deploy only modified services.
 
-**9.1 Test single service deployment:**
-
-On your local machine, make a change to test the pipeline:
+### 9.1 Modify a Single Service
 
 ```bash
 # Make a small change to product service
@@ -578,364 +590,25 @@ git commit -m "Test: Update product service documentation"
 git push origin main
 ```
 
-**9.2 Monitor the workflow:**
+### 9.2 Monitor Workflow
 
-1. Go to **Actions** tab in your GitHub repository
-2. Watch the new workflow run
-3. Verify that only `product-service` is redeployed
+1. Go to the **Actions** tab in your GitHub repository.
+2. Verify that only `product-service` is redeployed in the workflow logs.
 
-**9.3 Verify selective deployment:**
+### 9.3 Verify Selective Deployment
 
-On your server:
+On the server:
+
 ```bash
 cd /opt/ecommerce-app
 docker-compose ps
 
-# Check the logs to see only product-service was restarted
+# Check logs to confirm only product-service was restarted
 docker-compose logs --tail=20 product-service
 ```
 
----
+**Expected Output:** Logs show only `product-service` was redeployed.
 
-### **Step 10: Test Infrastructure Change**
+## Conclusion
 
-**10.1 Test full stack deployment:**
-
-```bash
-# Make a change that triggers full deployment
-echo "# Configuration updated $(date)" >> docker-compose.yml
-
-# Commit and push
-git add docker-compose.yml
-git commit -m "Test: Update docker-compose configuration"
-git push origin main
-```
-
-**10.2 Verify full deployment:**
-
-1. Check GitHub Actions - should show "Deploy All: true"
-2. On server, verify all services were restarted:
-```bash
-cd /opt/ecommerce-app
-docker-compose ps
-```
-
-All services should show recent restart times.
-
----
-
-### **Step 11: Test Notification Service Update**
-
-**11.1 Test notification-specific deployment:**
-
-```bash
-# Change notification service to test env var injection
-echo "# Updated notification logic $(date)" >> notification-service/README.md
-
-# Commit and push
-git add notification-service/README.md
-git commit -m "Test: Update notification service"
-git push origin main
-```
-
-**11.2 Verify environment variable injection:**
-
-1. Check GitHub Actions logs - should show "✓ Updated notification service environment variables"
-2. Test email functionality:
-```bash
-curl -X POST "http://localhost/api/v1/notifications/test" | jq .
-```
-
-**11.3 Verify in Mailtrap:**
-Check your Mailtrap inbox for the test email with your custom credentials.
-
----
-
-## Pipeline Testing Summary
-
-Your testing should follow this sequence:
-
-### **✅ Test 1: Initial Deployment** 
-- **Action**: First push with all code + CI/CD workflows
-- **Expected**: All services deployed, repository auto-cloned
-- **Verify**: `docker-compose ps` shows all services running
-
-### **✅ Test 2: Single Service Change** 
-- **Action**: Modify only product-service 
-- **Expected**: Only product-service redeployed
-- **Verify**: GitHub Actions logs + docker logs
-
-### **✅ Test 3: Infrastructure Change** 
-- **Action**: Modify docker-compose.yml
-- **Expected**: All services redeployed
-- **Verify**: All containers restarted
-
-### **✅ Test 4: Notification Service** 
-- **Action**: Modify notification-service
-- **Expected**: Only notification-service redeployed + env vars updated
-- **Verify**: Service restarted, test email works with new credentials
-
-### **✅ Test 5: Multiple Services** 
-```bash
-# Change multiple services
-echo "# Updated $(date)" >> inventory-service/README.md
-echo "# Updated $(date)" >> order-service/README.md
-
-git add inventory-service/ order-service/
-git commit -m "Test: Update multiple services"
-git push origin main
-```
-- **Expected**: Only those two services redeployed
-- **Verify**: Only affected services restarted
-
----
-
-## Working with Your Repository
-
-### **Development Workflow:**
-
-```bash
-# Clone your repository to local machine for development
-git clone https://github.com/YOUR-USERNAME/YOUR-REPO-NAME.git
-cd YOUR-REPO-NAME
-
-# Make changes to any service
-echo "new feature" >> product-service/app/main.py
-
-# Commit and push - automatic deployment happens!
-git add .
-git commit -m "Add new feature"
-git push origin main
-```
-
-### **Getting Updates from Original Repository:**
-
-```bash
-# Add the original repository as a remote
-git remote add upstream https://github.com/poridhioss/E-commerce-Microservices-with-Kafka.git
-
-# Fetch updates from original repository
-git fetch upstream
-
-# Merge updates into your main branch
-git merge upstream/main
-
-# Push the updates to your repository (triggers deployment)
-git push origin main
-```
-
-### **Updating Environment Variables:**
-
-1. **Update GitHub Secrets:**
-   - Go to Settings → Secrets and variables → Actions
-   - Update `SMTP_USER`, `SMTP_PASSWORD`, or `EMAIL_FROM`
-
-2. **Trigger Deployment:**
-   ```bash
-   # Make any change to notification service
-   echo "# Trigger env update $(date)" >> notification-service/README.md
-   git add notification-service/README.md
-   git commit -m "Update notification service environment"
-   git push origin main
-   ```
-
----
-
-## Verification Checklist
-
-After completing all steps, verify everything works:
-
-- [ ] ✅ Your GitHub repository contains all code plus CI/CD workflows
-- [ ] ✅ GitHub runner shows as "Idle" in Settings → Actions → Runners
-- [ ] ✅ GitHub Secrets are configured (SMTP_USER, SMTP_PASSWORD, EMAIL_FROM)
-- [ ] ✅ Initial deployment worked (all services running)
-- [ ] ✅ Single service change triggers selective deployment
-- [ ] ✅ Infrastructure change triggers full deployment  
-- [ ] ✅ Notification service gets updated environment variables
-- [ ] ✅ Test email works with your Mailtrap credentials
-- [ ] ✅ Multiple service changes deploy only affected services
-- [ ] ✅ Docker containers are running: `docker-compose ps`
-- [ ] ✅ Application is accessible at configured ports
-- [ ] ✅ All workflow runs show successful completion
-
----
-
-## Troubleshooting
-
-### **Common Issues and Solutions:**
-
-**1. Runner not appearing in GitHub:**
-```bash
-# Check runner service
-sudo systemctl status actions.runner.*
-
-# Restart if needed
-sudo systemctl restart actions.runner.*
-```
-
-**2. Repository clone fails:**
-```bash
-# Fix permissions
-sudo chown -R github-runner:github-runner /opt/ecommerce-app
-
-# Check Git configuration
-cd /opt/ecommerce-app
-git config user.name "GitHub Runner"
-git config user.email "runner@example.com"
-```
-
-**3. Services won't start:**
-```bash
-# Check Docker status
-sudo systemctl status docker
-
-# Check for port conflicts
-netstat -tlnp | grep :80
-
-# View service logs
-cd /opt/ecommerce-app
-docker-compose logs
-```
-
-**4. Environment variables not updating:**
-```bash
-# Check secrets are set in GitHub
-# Verify workflow logs show environment variable injection
-# Check notification service .env file:
-cd /opt/ecommerce-app
-cat notification-service/.env
-```
-
-**5. Email not working:**
-```bash
-# Test notification endpoint
-curl -X POST "http://localhost/api/v1/notifications/test"
-
-# Check notification service logs
-docker-compose logs notification-service
-
-# Verify Mailtrap credentials in GitHub Secrets
-```
-
----
-
-## Advanced Features (Optional)
-
-### **Add Slack/Discord Notifications:**
-
-```yaml
-# Add to your workflow after deployment
-- name: Notify deployment status
-  if: always()
-  run: |
-    STATUS="${{ job.status }}"
-    if [ "$STATUS" = "success" ]; then
-      MESSAGE="✅ Deployment successful"
-    else
-      MESSAGE="❌ Deployment failed"
-    fi
-    
-    curl -X POST -H 'Content-type: application/json' \
-    --data "{\"text\":\"$MESSAGE for ${{ github.repository }}\"}" \
-    ${{ secrets.SLACK_WEBHOOK_URL }}
-```
-
-### **Add Rollback Capability:**
-
-Create `.github/workflows/rollback.yml`:
-```yaml
-name: Rollback Deployment
-
-on:
-  workflow_dispatch:
-    inputs:
-      commit_hash:
-        description: 'Commit hash to rollback to'
-        required: true
-
-jobs:
-  rollback:
-    runs-on: self-hosted
-    steps:
-      - name: Rollback to specific commit
-        run: |
-          cd /opt/ecommerce-app
-          git checkout ${{ github.event.inputs.commit_hash }}
-          docker-compose down
-          docker-compose up -d --build
-```
-
-### **Add Health Checks:**
-
-```yaml
-# Add after deployment
-- name: Health check
-  run: |
-    sleep 30
-    curl -f http://localhost/health || exit 1
-    echo "✅ All services healthy"
-```
-
----
-
-## Security Best Practices
-
-### **Repository Security:**
-- ✅ Use GitHub Secrets for sensitive data
-- ✅ Never commit credentials to code
-- ✅ Regularly rotate secrets
-- ✅ Use branch protection rules
-
-### **Server Security:**
-- ✅ Dedicated user for runner
-- ✅ Firewall configuration
-- ✅ Regular security updates
-- ✅ Monitor access logs
-
-### **Docker Security:**
-- ✅ Use official base images
-- ✅ Regular image updates
-- ✅ Scan for vulnerabilities
-- ✅ Limit container privileges
-
----
-
-## What You've Accomplished
-
-🎉 **Congratulations!** You now have a **production-ready, automated CI/CD pipeline** that:
-
-✅ **Fully Automated Deployment** - Deploys on every push to main  
-✅ **Smart Change Detection** - Only deploys affected services  
-✅ **Secure Credential Management** - Environment variables via GitHub Secrets  
-✅ **Self-Hosted Infrastructure** - Complete control over deployment environment  
-✅ **Zero Manual Intervention** - Fully automated from code to production  
-✅ **Scalable Architecture** - Easily add new services or modify existing ones  
-✅ **Production Ready** - Handles failures, rollbacks, and service dependencies  
-
-### **Your Development Workflow is Now:**
-
-```
-1. Write Code → 2. Git Push → 3. Automatic Deployment → 4. Live Application ✨
-```
-
-**No servers to manage, no manual deployments, no credential worries!**
-
-Your e-commerce microservices platform is now ready for serious development and production use! 🚀
-
----
-
-## Support and Maintenance
-
-### **Regular Maintenance:**
-- Monitor GitHub Actions for failed deployments
-- Update runner software quarterly
-- Rotate secrets annually
-- Monitor server resources
-
-### **Scaling Considerations:**
-- Add more runners for parallel deployments
-- Implement blue-green deployment for zero downtime
-- Add monitoring and alerting
-- Consider container orchestration (Kubernetes) for larger scale
-
-**Happy coding and deploying!** 🎊
+This lab demonstrated how to build a robust CI/CD pipeline for e-commerce microservices using GitHub Actions with a self-hosted runner. You automated infrastructure setup, implemented smart change detection, and ensured secure credential management with GitHub Secrets. The pipeline supports selective service deployment, full stack updates, and notification service testing, providing a scalable and production-ready solution for microservices deployment.
